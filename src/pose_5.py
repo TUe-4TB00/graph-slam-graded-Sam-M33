@@ -75,7 +75,6 @@ def minimize_marginals(graph, initial_estimate, pose_options):
     #         result = optimize(graph, initial_estimate)
 
     #         marginals_pose = gtsam.Marginals(graph, result)
-    #         marginals_pose.marginalCovariance(X(1))
             
     #         sum_of_marginals = marginals_pose.marginalCovariance(L(1)).sum() + marginals_pose.marginalCovariance(L(2)).sum()
     #         marginals_list.append(sum_of_marginals)
@@ -127,12 +126,18 @@ def minimize_errors(graph, initial_estimate, pose_options):
 
     # TODO: create a list of errors (each index corresponds to a pose) and add the error of each pose to the list
     list_of_errors = []
+    true_positions = {
+        X(1): np.array([0.0, 0.0]),
+        X(2): np.array([2.0, 0.0]),
+        X(3): np.array([4.0, 0.0]),
+    }
 
+    for key, true_xy in true_positions.items():
+        estimated_pose = result.atPose2(key)
+        estimated_xy = np.array([estimated_pose.x(), estimated_pose.y()])
+        error = np.linalg.norm( estimated_xy - true_xy)
+        list_of_errors.append(error)
 
+    sum_of_errors = sum(list_of_errors)
 
-
-
-    # TODO: compute the sum of the errors and return it along with the best pose and landmark
-    sum_of_errors = 0
-    # sum_of_errors = sum(list_of_errors)
     return best_pose, best_landmark, sum_of_errors 
