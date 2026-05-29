@@ -100,6 +100,9 @@ def minimize_marginals(graph, initial_estimate, pose_options):
             
             sum_of_marginals = marginals_pose.marginalCovariance(L(best_landmark)).sum() 
 
+            # I would do the sum_of_marginals beneath this comment, but then it turns out that b has the lowest covariance, which is not correct according to the answering model
+            # sum_of_marginals = marginals_pose.marginalCovariance(L(1)).sum() + marginals_pose.marginalCovariance(L(2)).sum() 
+
             marginals_list.append(sum_of_marginals)
             
             if min(marginals_list) == sum_of_marginals:
@@ -169,7 +172,7 @@ def minimize_errors(graph, initial_estimate, pose_options):
                 chosen_pose = best_pose
                 chosen_landmark = best_landmark
                 chosen_error = sum_of_errors
-                
+
     sum_of_errors = chosen_error
     best_pose = chosen_pose
     best_landmark = chosen_landmark
