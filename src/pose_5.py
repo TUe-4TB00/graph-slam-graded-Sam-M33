@@ -2,6 +2,7 @@ import numpy as np
 from helperfunctions import add_pose_from_global, add_landmark_measurement_from_global
 import gtsam
 from gtsam.symbol_shorthand import L, X
+import pickle
 
 PRIOR_NOISE = gtsam.noiseModel.Diagonal.Sigmas(np.array([0.1, 0.1, 0.05]))  # (x, y, theta)
 ODOMETRY_NOISE = gtsam.noiseModel.Diagonal.Sigmas(np.array([0.2, 0.2, 0.1]))  # (dx, dy, dtheta)
@@ -52,65 +53,106 @@ def optimize(graph, initial_estimate):
     return result
 
 
+def optimize_temp(graph, initial_estimate):
+    # TODO: Initialize the optimizer 
+
+    # Creating LM parameters (`gtsam.LevenbergMarquardtParams`). We'll use the defaults.
+    params = gtsam.LevenbergMarquardtParams()
+    # Creating the optimizer instance, providing the graph, initial estimate, and parameters.
+    optimizer = gtsam.LevenbergMarquardtOptimizer(graph, initial_estimate, params)
+
+    # TODO: Perform the optimization and print the result
+
+    # Running the optimization
+    result = optimizer.optimize()
+    # Print the optimized result
+    # print("\nFinal Result:\n{}".format(result))
+
+    return result
+
+
+
 def minimize_marginals(graph, initial_estimate, pose_options):
     #TODO: try different pose and landmark options here, and keep the one with the lowest sum of marginals.
     
-    # chosen_pose = None
-    # chosen_landmark = None
-    # marginals_list = []
-    # # The sum of the marginals for each landmark can be computed using marginals.marginalCovariance(L(x)).sum()
-    # sum_of_marginals = 0
+    pickle.dump(graph, open('data_graph.pkl', 'wb'))
+    pickle.dump(initial_estimate, open('data_init_est.pkl', 'wb'))
 
-    # for best_landmark in range(1,2):
-    #     for best_pose in pose_options:
-    #         pose_5 = pose_options[best_pose]
-    #         # best_pose = "a"      # chosen pose option
-    #         # best_landmark = 1    # chosen landmark (1 or 2)
-    #         # pose_5 = pose_options[best_pose]
-    #         graph_temp = gtsam.NonlinearFactorGraph()
-    #         graph_temp = graph2
-    #         graph, initial_estimate = add_pose(graph_temp, initial_estimate, pose_5)
-    #         result = optimize(graph, initial_estimate)
-    #         graph = add_landmark_measurement(graph, result, pose_5, best_landmark)
-    #         result = optimize(graph, initial_estimate)
 
-    #         marginals_pose = gtsam.Marginals(graph, result)
+    chosen_pose = None
+    chosen_landmark = None
+    marginals_list = []
+    # The sum of the marginals for each landmark can be computed using marginals.marginalCovariance(L(x)).sum()
+    sum_of_marginals = 0
+
+    for best_landmark in range(1,3):
+        for best_pose in pose_options:
+            pose_5 = pose_options[best_pose]
+
+            print("\n At pose: {}".format(best_pose))
+            print("At landmark: {}".format(best_landmark))
+
+            with open("data_graph.pkl","rb") as f:
+                graph_temp = pickle.load(f)
+                
+                # print("pickled data =\n")
+                # print(graph_temp)
+                # print("\n---------------\n")
+
+            initial_estimate_temp = pickle.load(open('data_init_est.pkl', 'rb')) 
+
+            graph_temp, initial_estimate_temp = add_pose(graph_temp, initial_estimate_temp, pose_5)
+            result = optimize_temp(graph_temp, initial_estimate_temp)
+            graph_temp = add_landmark_measurement(graph_temp, result, pose_5, best_landmark)
+            result = optimize_temp(graph_temp, initial_estimate_temp)
+
+            marginals_pose = gtsam.Marginals(graph_temp, result)
             
-    #         sum_of_marginals = marginals_pose.marginalCovariance(L(1)).sum() + marginals_pose.marginalCovariance(L(2)).sum()
-    #         marginals_list.append(sum_of_marginals)
+            sum_of_marginals = marginals_pose.marginalCovariance(L(best_landmark)).sum() 
+            # sum_of_marginals = marginals_pose.marginalCovariance(L(1)).sum() + marginals_pose.marginalCovariance(L(2)).sum()
+
+            print(" sum of marginals: {}".format(sum_of_marginals))
+            marginals_list.append(sum_of_marginals)
             
-    #         if min(marginals_list) == sum_of_marginals:
-    #             chosen_pose = best_pose
-    #             chosen_landmark = best_landmark
+            if min(marginals_list) == sum_of_marginals:
+                chosen_pose = best_pose
+                chosen_landmark = best_landmark
+            
 
     # # TODO: Calculate marginal covariances for the relevant variables and visualize the updated factor graph with covariances
     
-    # graph, initial_estimate = add_pose(graph, initial_estimate, pose_options[chosen_pose])
+    graph_temp = pickle.load(open('data_graph.pkl', 'rb')) 
+    initial_estimate_temp = pickle.load(open('data_init_est.pkl', 'rb')) 
+
+    graph_temp, initial_estimate_temp = add_pose(graph_temp, initial_estimate_temp, pose_options[chosen_pose])
+    result = optimize(graph_temp, initial_estimate_temp)
+    graph_temp = add_landmark_measurement(graph_temp, result, pose_5, chosen_landmark)
+    result = optimize(graph_temp, initial_estimate_temp)
+    marginals = gtsam.Marginals(graph_temp, result)
+    sum_of_marginals = marginals.marginalCovariance(L(1)).sum() + marginals.marginalCovariance(L(2)).sum()
+    print("chosen landmark = ", chosen_landmark, "  chosen pose = ", chosen_pose)
+    print(" sum of marginals: {}".format(sum_of_marginals))
+    print(" sum of marginals: {}".format(marginals.marginalCovariance(L(chosen_landmark)).sum()))
+
+    return chosen_pose, chosen_landmark, sum_of_marginals
+
+
+
+    # #TODO: try different pose and landmark options here, and keep the one with the lowest sum of marginals.
+    # best_pose = "d"      # chosen pose option
+    # best_landmark = 1    # chosen landmark (1 or 2)
+    # pose_5 = pose_options[best_pose]
+    # graph, initial_estimate = add_pose(graph, initial_estimate, pose_5)
     # result = optimize(graph, initial_estimate)
-    # graph = add_landmark_measurement(graph, result, pose_5, chosen_landmark)
+    # graph = add_landmark_measurement(graph, result, pose_5, best_landmark)
     # result = optimize(graph, initial_estimate)
+
+    # # TODO: Calculate marginal covariances for the relevant variables and visualize the updated factor graph with covariances
+    # marginals = []
     # marginals = gtsam.Marginals(graph, result)
-    # sum_of_marginals = marginals.marginalCovariance(L(1)).sum() + marginals.marginalCovariance(L(2)).sum()
-
-    # return chosen_pose, chosen_landmark, sum_of_marginals
-
-
-
-    #TODO: try different pose and landmark options here, and keep the one with the lowest sum of marginals.
-    best_pose = "d"      # chosen pose option
-    best_landmark = 1    # chosen landmark (1 or 2)
-    pose_5 = pose_options[best_pose]
-    graph, initial_estimate = add_pose(graph, initial_estimate, pose_5)
-    result = optimize(graph, initial_estimate)
-    graph = add_landmark_measurement(graph, result, pose_5, best_landmark)
-    result = optimize(graph, initial_estimate)
-
-    # TODO: Calculate marginal covariances for the relevant variables and visualize the updated factor graph with covariances
-    marginals = []
-    marginals = gtsam.Marginals(graph, result)
-    # The sum of the marginals for each landmark can be computed using marginals.marginalCovariance(L(x)).sum()
-    sum_of_marginals = marginals.marginalCovariance(L(1)).sum() + marginals.marginalCovariance(L(2)).sum() 
-    return best_pose, best_landmark, sum_of_marginals
+    # # The sum of the marginals for each landmark can be computed using marginals.marginalCovariance(L(x)).sum()
+    # sum_of_marginals = marginals.marginalCovariance(L(1)).sum() + marginals.marginalCovariance(L(2)).sum() 
+    # return best_pose, best_landmark, sum_of_marginals
     
     
 
