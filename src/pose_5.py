@@ -99,9 +99,7 @@ def minimize_marginals(graph, initial_estimate, pose_options):
             marginals_pose = gtsam.Marginals(graph_temp, result)
             
             sum_of_marginals = marginals_pose.marginalCovariance(L(best_landmark)).sum() 
-            # sum_of_marginals = marginals_pose.marginalCovariance(L(1)).sum() + marginals_pose.marginalCovariance(L(2)).sum()
 
-            print(" sum of marginals: {}".format(sum_of_marginals))
             marginals_list.append(sum_of_marginals)
             
             if min(marginals_list) == sum_of_marginals:
@@ -128,28 +126,53 @@ def minimize_marginals(graph, initial_estimate, pose_options):
 
 def minimize_errors(graph, initial_estimate, pose_options):
     #TODO: try different pose and landmark options here, and keep the one with the lowest resulting error.
-    best_pose = "a"      # chosen pose option
-    best_landmark = 1    # chosen landmark (1 or 2)
-    pose_5 = pose_options[best_pose]
-    graph, initial_estimate = add_pose(graph, initial_estimate, pose_5)
-    result = optimize(graph, initial_estimate)
-    graph = add_landmark_measurement(graph, result, pose_5, best_landmark)
-    result = optimize(graph, initial_estimate)
 
-    # TODO: create a list of errors (each index corresponds to a pose) and add the error of each pose to the list
-    list_of_errors = []
+
+    pickle.dump(graph, open('data_graph2.pkl', 'wb'))
+    pickle.dump(initial_estimate, open('data_init_est2.pkl', 'wb'))
+
     true_positions = {
         X(1): np.array([0.0, 0.0]),
         X(2): np.array([2.0, 0.0]),
         X(3): np.array([4.0, 0.0]),
     }
 
-    for key, true_xy in true_positions.items():
-        estimated_pose = result.atPose2(key)
-        estimated_xy = np.array([estimated_pose.x(), estimated_pose.y()])
-        error = np.linalg.norm( estimated_xy - true_xy)
-        list_of_errors.append(error)
+    chosen_pose = None
+    chosen_landmark = None
+    chosen_error = 0
+    error_list = []
 
-    sum_of_errors = sum(list_of_errors)
+    for best_landmark in range(1,3):
+        for best_pose in pose_options:
+            pose_5 = pose_options[best_pose]
+
+            graph_temp = pickle.load(open('data_graph2.pkl', 'rb')) 
+            initial_estimate_temp = pickle.load(open('data_init_est2.pkl', 'rb')) 
+
+            graph_temp, initial_estimate_temp = add_pose(graph_temp, initial_estimate_temp, pose_5)
+            result = optimize_temp(graph_temp, initial_estimate_temp)
+            graph_temp = add_landmark_measurement(graph_temp, result, pose_5, best_landmark)
+            result = optimize_temp(graph_temp, initial_estimate_temp)
+
+            list_of_errors = []
+            for key, true_xy in true_positions.items():
+                estimated_pose = result.atPose2(key)
+                estimated_xy = np.array([estimated_pose.x(), estimated_pose.y()])
+                error = np.linalg.norm( estimated_xy - true_xy)
+                list_of_errors.append(error)
+
+            sum_of_errors = sum(list_of_errors)
+
+            error_list.append(sum_of_errors)
+            
+            if min(error_list) == sum_of_errors:
+                chosen_pose = best_pose
+                chosen_landmark = best_landmark
+                chosen_error = sum_of_errors
+                
+    sum_of_errors = chosen_error
+    best_pose = chosen_pose
+    best_landmark = chosen_landmark
+
 
     return best_pose, best_landmark, sum_of_errors 
